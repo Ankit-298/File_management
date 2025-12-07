@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Viewer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            padding: 30px;
+            background: var(--body-bg);
+            color: var(--dark-color);
+        }
+
+        .viewer-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(99, 102, 241, 0.15);
+        }
+
+        .viewer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+
+        .viewer-header h1 {
+            font-size: 24px;
+            margin: 0;
+        }
+
+        .file-meta {
+            color: var(--gray-color);
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .viewer-content {
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .viewer-content img {
+            max-width: 100%;
+            max-height: 80vh;
+        }
+
+        .viewer-content iframe {
+            width: 100%;
+            height: 800px;
+            border: none;
+        }
+
+        .viewer-content pre {
+            width: 100%;
+            height: 600px;
+            overflow: auto;
+            padding: 20px;
+            margin: 0;
+            white-space: pre-wrap;
+            text-align: left;
+            font-family: monospace;
+            color: #ccc;
+        }
+
+        .btn-download {
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="viewer-container">
+        <div class="viewer-header">
+            <div>
+                <h1 id="fileName">Loading...</h1>
+                <div class="file-meta" id="fileMeta"></div>
+            </div>
+            <a href="#" id="downloadBtn" class="btn btn-primary btn-download"><i class="fas fa-download"></i>
+                Download</a>
+        </div>
+        <div class="viewer-content" id="viewerContent">
+            <div class="spinner"><i class="fas fa-spinner fa-spin fa-3x"></i></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load theme
+            const theme = localStorage.getItem('secure_theme');
+            if (theme === 'dark') document.body.classList.add('dark-mode');
+
+            const params = new URLSearchParams(window.location.search);
+            const url = params.get('url');
+            const name = params.get('name') || 'Unknown File';
+            const type = params.get('type') || 'unknown';
+            const mime = (params.get('mime') || '').toLowerCase();
+            const ext = (params.get('ext') || '').toLowerCase();
+
+            document.title = `${name} - Viewer`;
+            document.getElementById('fileName').textContent = name;
+            document.getElementById('fileMeta').textContent = `Type: ${type} | Format: ${mime || ext}`;
+
+            const downloadBtn = document.getElementById('downloadBtn');
+            if (url) {
+                downloadBtn.href = url;
+                downloadBtn.download = name;
+            } else {
+                downloadBtn.style.display = 'none';
+            }
+
+            const contentEl = document.getElementById('viewerContent');
+
+            if (!url) {
+                contentEl.innerHTML = '<p>No file URL provided.</p>';
+                return;
+            }
+
+            // Handle different file types
+            if (mime.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) {
+                contentEl.innerHTML = `<img src="${url}" alt="${escapeHtml(name)}">`;
+            } else if (mime === 'application/pdf' || type === 'pdf' || ext === 'pdf') {
+                contentEl.innerHTML = `<iframe src="${url}"></iframe>`;
+            } else if (['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt'].includes(ext) ||
+                mime.includes('officedocument') ||
+                mime.includes('msword') ||
+                mime.includes('ms-excel') ||
+                mime.includes('ms-powerpoint')) {
+                // Office documents - show download message
+                const iconClass = ext.includes('doc') ? 'fa-file-word' :
+                    ext.includes('xls') ? 'fa-file-excel' :
+                        ext.includes('ppt') ? 'fa-file-powerpoint' : 'fa-file-alt';
+                const iconColor = ext.includes('doc') ? '#2b579a' :
+                    ext.includes('xls') ? '#217346' :
+                        ext.includes('ppt') ? '#d24726' : 'var(--primary-color)';
+
+                contentEl.innerHTML = `
+                    <div style="text-align:center; padding: 40px;">
+                        <i class="fas ${iconClass} fa-5x" style="color: ${iconColor}; margin-bottom: 20px;"></i>
+                        <h3 style="margin-bottom: 15px;">Microsoft Office Document</h3>
+                        <p style="margin-bottom: 20px; color: var(--gray-color);">
+                            This ${ext.toUpperCase()} file has been decrypted successfully.
+                        </p>
+                        <p style="margin-bottom: 30px; color: var(--gray-color);">
+                            Click the download button above to save and open it in Microsoft Office, 
+                            LibreOffice, or Google Docs.
+                        </p>
+                        <div style="background: rgba(99, 102, 241, 0.1); padding: 15px; border-radius: 8px; margin-top: 20px;">
+                            <i class="fas fa-info-circle" style="color: var(--primary-color);"></i>
+                            <span style="margin-left: 8px; color: var(--gray-color);">
+                                Office documents cannot be previewed directly in the browser for security reasons.
+                            </span>
+                        </div>
+                    </div>
+                `;
+            } else if (mime.startsWith('video/') || ['mp4', 'webm', 'ogg'].includes(ext)) {
+                contentEl.innerHTML = `<video controls src="${url}" style="max-width:100%; max-height:80vh;"></video>`;
+            } else if (mime.startsWith('audio/') || ['mp3', 'wav'].includes(ext)) {
+                contentEl.innerHTML = `<audio controls src="${url}"></audio>`;
+            } else if (mime.startsWith('text/') || ['txt', 'csv', 'json', 'html', 'css', 'js', 'py', 'md'].includes(ext)) {
+                fetch(url).then(r => r.text()).then(text => {
+                    contentEl.innerHTML = `<pre>${escapeHtml(text)}</pre>`;
+                }).catch(err => {
+                    contentEl.innerHTML = `<p style="color: var(--danger-color);">Failed to load text content.</p>`;
+                });
+            } else {
+                contentEl.innerHTML = `
+                    <div style="text-align:center; padding: 40px;">
+                        <i class="fas fa-file fa-5x" style="color: var(--gray-color); margin-bottom: 20px;"></i>
+                        <p>This file format cannot be previewed directly.</p>
+                        <p>Please use the download button to view it.</p>
+                    </div>
+                `;
+            }
+        });
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+
+</html>
